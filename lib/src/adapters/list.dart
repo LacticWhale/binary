@@ -2,7 +2,7 @@ part of 'adapters.dart';
 
 /// Adapter for a list of arbitrary elements. Because these elements may have
 /// subclasses, the type has to be encoded for every element.
-class AdapterForList<T> extends AdapterFor<List<T>> {
+class AdapterForList<T extends dynamic> extends AdapterFor<List<T>> {
   const AdapterForList() : super.primitive();
 
   @override
@@ -21,27 +21,27 @@ class AdapterForList<T> extends AdapterFor<List<T>> {
 }
 
 /// Adapter for a list of [bool]s. Obviously, they can be encoded quite
-/// efficiently. Because the list may contain [null], the elements are encoded
-/// as two bytes with 11 for [null], 01 for [true], 10 for [false] and 00 as a
-/// terminating sequence.
+/// efficiently.
 class AdapterForListOfBool extends AdapterFor<List<bool>> {
   const AdapterForListOfBool() : super.primitive();
 
-  _boolToBits(bool value) => value == null ? 3 : value ? 1 : 2;
-  _bitsToBool(int bits) => bits == 3 ? null : bits == 1;
+  int _boolToBits(bool value) => value ? 1 : 0;
+  bool _bitsToBool(int bits) => bits == 1;
 
   @override
-  void write(BinaryWriter writer, List<bool> list) {
-    for (var i = 0; i < list.length + 1; i += 4) {
+  void write(BinaryWriter writer, List<bool> obj) {
+    writer.writeUint32(obj.length);
+    for (var i = 0; i < obj.length + 1; i+=8) {
       var byte = 0;
-      for (var j = 0; j < 4; j++) {
+      for (var j = 0; j < 8; j++) {
         final index = i + j;
-        if (index < list.length) {
-          byte <<= 2;
-          byte |= _boolToBits(i + j < list.length ? list[i + j] : null);
+
+        if (index < obj.length) {
+          byte <<= 1;
+          byte |= _boolToBits(obj[index]);
         } else {
-          byte <<= 2;
-          // 00 bits encode the end of the sequence.
+          byte <<= 1;
+          // 0 bit encode the end of the sequence.
         }
       }
       writer.writeUint8(byte);
@@ -52,7 +52,58 @@ class AdapterForListOfBool extends AdapterFor<List<bool>> {
   List<bool> read(BinaryReader reader) {
     final list = <bool>[];
 
-    int byte, bits;
+    final length = reader.readUint32();
+
+    add: for (var i = 0; i < length + 1; i += 8) {
+      final byte = reader.readUint8();
+      for (var j = 7; j >= 0; j--) {
+        final index = i + j;
+
+        if(index < length)
+          list.add(_bitsToBool(byte & 1 << i));
+        else
+          break add;
+      }
+    }
+    
+    return list;
+  }
+}
+
+/// Adapter for a list of [bool]s. Obviously, they can be encoded quite
+/// efficiently. Because the list may contain [null], the elements are encoded
+/// as two bytes with 11 for [null], 01 for [true], 10 for [false] and 00 as a
+/// terminating sequence.
+class AdapterForListOfNullableBool extends AdapterFor<List<bool?>> {
+  const AdapterForListOfNullableBool() : super.primitive();
+
+  int _boolToBits(bool? value) => value == null ? 3 : value ? 1 : 2;
+  bool? _bitsToBool(int bits) => bits == 3 ? null : bits == 1;
+
+  @override
+  void write(BinaryWriter writer, List<bool?> obj) {
+    for (var i = 0; i < obj.length + 1; i += 4) {
+      var byte = 0;
+      for (var j = 0; j < 4; j++) {
+        final index = i + j;
+        if (index < obj.length) {
+          byte <<= 2;
+          byte |= _boolToBits(i + j < obj.length ? obj[i + j] : null);
+        } else {
+          byte <<= 2;
+          // 00 bits encode the end of the sequence.
+        }
+      }
+      writer.writeUint8(byte);
+    }
+  }
+
+  @override
+  List<bool?> read(BinaryReader reader) {
+    final list = <bool?>[];
+
+    int byte;
+    late int bits;
     do {
       byte = reader.readUint8();
 
@@ -73,20 +124,21 @@ class AdapterForListOfBool extends AdapterFor<List<bool>> {
 
 /// Because elements of type [Null] can only have the value [null], encoding
 /// the length of the list is sufficient to reconstruct it.
+// ignore: prefer_void_to_null
 class AdapterForListOfNull extends AdapterFor<List<Null>> {
   const AdapterForListOfNull() : super.primitive();
 
   @override
-  void write(BinaryWriter writer, List<Null> list) =>
-      writer.writeUint32(list.length);
+// ignore: prefer_void_to_null
+  void write(BinaryWriter writer, List<Null> obj) =>
+      writer.writeUint32(obj.length);
 
   @override
+// ignore: prefer_void_to_null
   List<Null> read(BinaryReader reader) {
     final length = reader.readUint32();
 
-    return <Null>[
-      for (var i = 0; i < length; i++) null,
-    ];
+    return List.filled(length, null);
   }
 }
 
@@ -95,14 +147,13 @@ class AdapterForListOfNull extends AdapterFor<List<Null>> {
 /// exact right type, so we can encode them directly. They may be [null]
 /// though, so a bit field at the beginning encodes the null-ness of the
 /// elements (as well as the length of the list).
-class AdapterForPrimitiveList<T>
-    extends AdapterForSpecificValueOfType<List<T>> {
+class AdapterForPrimitiveList<T extends dynamic>
+    extends AdapterForSpecificValueOfType<List<T?>> {
   const AdapterForPrimitiveList._({
-    @required this.isShort,
-    @required this.isNullable,
-    @required this.adapter,
-  })  : assert(adapter != null),
-        super.primitive();
+    required this.isShort,
+    required this.isNullable,
+    required this.adapter,
+  })  : super.primitive();
 
   const AdapterForPrimitiveList.short(AdapterFor<T> adapter)
       : this._(adapter: adapter, isNullable: false, isShort: true);
@@ -118,32 +169,35 @@ class AdapterForPrimitiveList<T>
   final AdapterFor<T> adapter;
 
   @override
-  bool matches(List<T> list) {
-    if (isShort && list.length >= 256) return false;
-    if (!isNullable && list.any((item) => item == null)) return false;
-    if (adapter is! AdapterForSpecificValueOfType) return false;
+  bool matches(List<T?> value) {
+    if (isShort && value.length >= 256) 
+      return false;
+    if (!isNullable && value.any((item) => item == null)) 
+      return false;
+    if (adapter is! AdapterForSpecificValueOfType)
+      return false;
     final valueAdapter = adapter as AdapterForSpecificValueOfType<T>;
-    return list.where((item) => item != null).every(valueAdapter.matches);
+    return value.where((item) => item != null).every((item) => valueAdapter.matches(item as T));
   }
 
   @override
-  void write(BinaryWriter writer, List<T> list) {
+  void write(BinaryWriter writer, List<T?> obj) {
     if (isNullable) {
       /// List of [true] if element exists or [false] if element doesn't exist.
       const AdapterForListOfBool()
-          .write(writer, list.map((element) => element != null).toList());
+          .write(writer, obj.map((element) => element != null).toList());
     } else {
-      (isShort ? writer.writeUint8 : writer.writeUint32)(list.length);
+      (isShort ? writer.writeUint8 : writer.writeUint32)(obj.length);
     }
 
     // Write the remaining non-null items.
-    for (final item in list.where((element) => element != null)) {
-      adapter.write(writer, item);
+    for (final item in obj.where((element) => element != null)) {
+      adapter.write(writer, item as T);
     }
   }
 
   @override
-  List<T> read(BinaryReader reader) {
+  List<T?> read(BinaryReader reader) {
     int length;
     List<bool> existences;
 
@@ -155,7 +209,7 @@ class AdapterForPrimitiveList<T>
       existences = <bool>[for (var i = 0; i < length; i++) true];
     }
 
-    return <T>[
+    return <T?>[
       for (var i = 0; i < existences.length; i++)
         if (existences[i]) adapter.read(reader) else null,
     ];

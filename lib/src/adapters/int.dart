@@ -12,7 +12,7 @@ class AdapterForUint8 extends AdapterForSpecificValueOfType<int> {
   bool matches(int value) => value >= 0 && value < 256;
 
   @override
-  void write(BinaryWriter writer, int value) => writer.writeUint8(value);
+  void write(BinaryWriter writer, int obj) => writer.writeUint8(obj);
 
   @override
   int read(BinaryReader reader) => reader.readUint8();
@@ -25,7 +25,7 @@ class AdapterForInt8 extends AdapterForSpecificValueOfType<int> {
   bool matches(int value) => value >= -128 && value < 128;
 
   @override
-  void write(BinaryWriter writer, int value) => writer.writeInt8(value);
+  void write(BinaryWriter writer, int obj) => writer.writeInt8(obj);
 
   @override
   int read(BinaryReader reader) => reader.readInt8();
@@ -74,7 +74,7 @@ class AdapterForInt32 extends AdapterForSpecificValueOfType<int> {
   const AdapterForInt32() : super.primitive();
 
   @override
-  bool matches(int value) => value >= 2147483648 && value < 2147483648;
+  bool matches(int value) => value >= -2147483648 && value < 2147483648;
 
   @override
   void write(BinaryWriter writer, int value) => writer.writeInt32(value);

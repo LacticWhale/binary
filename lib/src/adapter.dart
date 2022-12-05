@@ -2,12 +2,12 @@ part of 'type_registry.dart';
 
 typedef Writer<T> = void Function(BinaryWriter writer, T obj);
 typedef Reader<T> = T Function(BinaryReader reader);
-typedef SubTypeAdapterBuilder<T> = AdapterFor<T> Function();
+typedef SubTypeAdapterBuilder<T extends Object> = AdapterFor<T> Function();
 
 /// [AdapterFor]s can be implemented to support serializing and deserializing
-/// Dart objects of type [T].
+/// Dart objects of type nullable [T].
 @immutable
-abstract class AdapterFor<T> {
+abstract class AdapterFor<T extends dynamic> {
   const AdapterFor() : _isPrimitive = false;
   const AdapterFor.primitive() : _isPrimitive = true;
 
@@ -40,7 +40,7 @@ abstract class AdapterFor<T> {
   void _registerForId(
     int typeId,
     TypeRegistryImpl registry, {
-    @required bool showWarningForSubtypes,
+    required bool showWarningForSubtypes,
   }) =>
       registry.registerAdapter<T>(
         typeId,
@@ -65,7 +65,7 @@ abstract class AdapterFor<T> {
   String toString() => runtimeType.toString();
 }
 
-abstract class AdapterForSpecificValueOfType<T> extends AdapterFor<T> {
+abstract class AdapterForSpecificValueOfType<T extends dynamic> extends AdapterFor<T> {
   const AdapterForSpecificValueOfType() : super();
   const AdapterForSpecificValueOfType.primitive() : super.primitive();
 

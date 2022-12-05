@@ -25,10 +25,10 @@ class BinaryReader {
   void _removeLimit() => _limitOffsets.removeLast();
 
   /// Finds a fitting adapter for the given [value] and then writes it.
-  T read<T>() {
+  T read<T extends dynamic>() {
     final offsettedTypeId = readUint16();
     final typeId = offsettedTypeId - _reservedTypeIds;
-    final adapter = TypeRegistry.findAdapterById(typeId);
+    final adapter = TypeRegistry.findAdapterById(typeId) as AdapterFor<T>?;
 
     if (adapter == null) {
       // This is an unknown type id. Just assume it's not a primitive adapter
@@ -36,7 +36,7 @@ class BinaryReader {
       // it encoded.
       final length = readUint32();
       skip(length);
-      return null;
+      return null as T;
     } else if (adapter.isPrimitive) {
       // Trust the adapter to read exactly the right amount of bytes.
       final data = adapter.read(this);
@@ -77,7 +77,7 @@ class _LimitingByteData {
   }
 
   int _offset = 0;
-  ByteData _data;
+  late ByteData _data;
 
   int _reserve(int bytes, int limit) {
     if (_offset + bytes > limit) {

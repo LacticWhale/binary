@@ -1,4 +1,4 @@
-import 'package:meta/meta.dart';
+import 'package:collection/collection.dart';
 
 import 'type_registry.dart';
 
@@ -18,16 +18,16 @@ import 'type_registry.dart';
 ///
 /// That being said, there exist shortcuts into the tree based on the runtime
 /// type.
-class AdapterNode<T> {
+class AdapterNode<T extends dynamic> {
   AdapterNode({
-    @required this.adapter,
+    required this.adapter,
     this.showWarningForSubtypes = true,
-  }) : assert(showWarningForSubtypes != null);
+  });
 
   AdapterNode.virtual() : this(adapter: null);
 
   /// The adapter registered for this type node.
-  final AdapterFor<T> adapter;
+  final AdapterFor<T>? adapter;
   bool get isVirtual => adapter == null;
 
   /// Whether to show warnings for subtypes. If [true] and values do not match
@@ -78,9 +78,8 @@ class AdapterNode<T> {
   }
 
   AdapterNode<T> findNodeByValue(T value) {
-    final matchingSubNode = _children.firstWhere(
+    final matchingSubNode = _children.firstWhereOrNull(
       (type) => type.matches(value),
-      orElse: () => null,
     );
     return matchingSubNode?.findNodeByValue(value) ?? this;
   }

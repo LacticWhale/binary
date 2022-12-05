@@ -45,7 +45,7 @@ class TypeRegistryImpl {
   final _adaptersById = <int, AdapterFor<dynamic>>{};
 
   final _adapterShortcuts = <Type, AdapterNode<dynamic>>{};
-  final _adapterTree = AdapterNode<Object>.virtual();
+  final _adapterTree = AdapterNode<Object?>.virtual();
 
   /// Users may register adapters for types in one version of their app and
   /// later remove types and the corresponding adapters. To ensure
@@ -59,8 +59,7 @@ class TypeRegistryImpl {
 
   /// Register a virtual [AdapterNode] to make it available for serializing and
   /// deserializing.
-  void registerVirtualNode<T>(AdapterNode<T> node) {
-    assert(node != null);
+  void registerVirtualNode<T extends Object?>(AdapterNode<T> node) {
     assert(node.isVirtual);
 
     _adapterShortcuts[node.type] ??= node;
@@ -69,15 +68,11 @@ class TypeRegistryImpl {
 
   /// Register a [AdapterFor<T>] to make it available for serializing and
   /// deserializing.
-  void registerAdapter<T>(
+  void registerAdapter<T extends dynamic>(
     int typeId,
     AdapterFor<T> adapter, {
     bool showWarningForSubtypes = true,
   }) {
-    assert(typeId != null);
-    assert(adapter != null);
-    assert(showWarningForSubtypes != null);
-
     if (_legacyIds.contains(typeId)) {
       throw LegacyTypeUsed(typeId, adapter);
     }
@@ -127,18 +122,18 @@ class TypeRegistryImpl {
 
     final usedIds = typeIds.intersection(_adaptersById.keys.toSet());
     if (usedIds.isNotEmpty) {
-      throw LegacyTypeUsed(usedIds.first, _adaptersById[usedIds.first]);
+      throw LegacyTypeUsed(usedIds.first, _adaptersById[usedIds.first]!);
     }
   }
 
   /// Finds the id of an adapter.
-  int findIdOfAdapter(AdapterFor<dynamic> adapter) => _idsByAdapters[adapter];
+  int? findIdOfAdapter(AdapterFor<dynamic> adapter) => _idsByAdapters[adapter];
 
   /// Finds the adapter registered for the given [typeId].
-  AdapterFor<dynamic> findAdapterById(int typeId) => _adaptersById[typeId];
+  AdapterFor<dynamic>? findAdapterById(int typeId) => _adaptersById[typeId];
 
   /// Finds an adapter for serializing the [object].
-  AdapterFor<T> findAdapterByValue<T>(T object) {
+  AdapterFor<T> findAdapterByValue<T extends dynamic>(T object) {
     // Find the best matching adapter in the type tree.
     final searchStartNode =
         _adapterShortcuts[object.runtimeType] ?? _adapterTree;
@@ -160,17 +155,15 @@ class TypeRegistryImpl {
           'type by calling ${_createAdapterSuggestion(actualType)}.');
     }
 
-    return matchingNode.adapter;
+    return matchingNode.adapter! as AdapterFor<T>;
   }
 
-  static bool _isSameType(Type runtimeType, Type staticType) {
-    return staticType.toString() ==
-        runtimeType
-            .toString()
-            .replaceAll('JSArray', 'List')
-            .replaceAll('_CompactLinkedHashSet', 'Set')
-            .replaceAll('_InternalLinkedHashMap', 'Map');
-  }
+  static bool _isSameType(Type runtimeType, Type staticType) => staticType.toString() ==
+    runtimeType
+        .toString()
+        .replaceAll('JSArray', 'List')
+        .replaceAll('_CompactLinkedHashSet', 'Set')
+        .replaceAll('_InternalLinkedHashMap', 'Map');
 
   String _createAdapterSuggestion(Type type) {
     final suggestedId = _suggestedAdapters[type.toString()] ??

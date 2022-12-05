@@ -6,8 +6,8 @@ class AdapterForSet<T> extends AdapterFor<Set<T>> {
   const AdapterForSet() : super.primitive();
 
   @override
-  void write(BinaryWriter writer, Set<T> theSet) =>
-      writer.write(theSet.toList());
+  void write(BinaryWriter writer, Set<T> obj) =>
+      writer.write(obj.toList());
 
   @override
   Set<T> read(BinaryReader reader) => reader.read<List<T>>().toSet();

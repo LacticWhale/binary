@@ -11,7 +11,7 @@ class BinaryWriter {
   int _reserve(int bytes) => _resizingData._reserve(bytes);
 
   /// Finds a fitting adapter for the given [value] and then writes it.
-  void write<T>(T value) {
+  void write<T extends dynamic>(T value) {
     final adapter = TypeRegistry.findAdapterByValue<T>(value);
     final typeId = TypeRegistry.findIdOfAdapter(adapter);
 
@@ -39,6 +39,11 @@ class BinaryWriter {
 
     // Note: The above does not apply to some primitive adapters which extend
     // [UnsafeTypeAdapter]. They exist purely for efficiency reason.
+
+    if (typeId == null) {
+      throw Exception('No adapter for the typeId $typeId found. Consider '
+          'adding an adapter for that typeId.');
+    }
 
     writeUint16(typeId + _reservedTypeIds);
 
@@ -111,12 +116,12 @@ class BinaryWriter {
 
 class _ResizingByteData {
   Uint8List _buffer = Uint8List(256);
-  ByteData _byteDataInstance;
+  ByteData? _byteDataInstance;
   int _offset = 0;
 
   ByteData get _data {
     _byteDataInstance ??= ByteData.view(_buffer.buffer);
-    return _byteDataInstance;
+    return _byteDataInstance!;
   }
 
   /// Makes sure that [bytes] bytes can be written to the buffer and returns an

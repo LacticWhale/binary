@@ -5,7 +5,7 @@ class AdapterForNullTerminatedString
   const AdapterForNullTerminatedString() : super.primitive();
 
   @override
-  bool matches(String value) => !value.contains('\0');
+  bool matches(String value) => value.contains('\0');
 
   @override
   void write(BinaryWriter writer, String value) {
